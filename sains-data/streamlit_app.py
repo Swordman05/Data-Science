@@ -160,8 +160,11 @@ with tab2:
         "jumlah_pengunjung <= 0": int((df["jumlah_pengunjung"] <= 0).sum()),
         "durasi <= 0 detik":      int((df["durasi"] <= 0).sum()),
     }
-    val_df = pd.DataFrame({"Pelanggaran": masalah}).T
-    val_df["Status"] = val_df["Pelanggaran"].apply(lambda v: "✅ OK" if v == 0 else "⚠️ Perlu dibersihkan")
+    val_df = pd.DataFrame([
+        {"Masalah": k, "Pelanggaran": v,
+         "Status": "✅ OK" if v == 0 else "⚠️ Perlu dibersihkan"}
+        for k, v in masalah.items()
+    ]).set_index("Masalah")
     st.dataframe(val_df)
 
     st.markdown("**Deteksi Outlier (metode IQR)**")
