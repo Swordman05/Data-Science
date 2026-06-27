@@ -374,6 +374,21 @@ def chart_layout(fig, title, h=420, **kw):
     )
     return fig
 
+def reasoning(metode=None, baca=None, batas=None):
+    """Render blok penalaran: Metode & Alasan / Cara Membaca / Keterbatasan."""
+    blocks = []
+    if metode: blocks.append(("🎯 Metode &amp; Alasan", metode, "#EEF2FF", "#4F46E5", "#3730A3"))
+    if baca:   blocks.append(("🔎 Cara Membaca Hasil", baca, "#ECFDF5", "#10B981", "#065F46"))
+    if batas:  blocks.append(("⚠️ Keterbatasan &amp; Langkah Lanjut", batas, "#FFFBEB", "#F59E0B", "#92400E"))
+    html = "".join(
+        f'<div style="background:{bg};border-left:4px solid {bar};border-radius:0 10px 10px 0;'
+        f'padding:.7rem 1rem;margin:.45rem 0">'
+        f'<div style="font-weight:700;font-size:.8rem;color:{bar};margin-bottom:.25rem">{title}</div>'
+        f'<div style="font-size:.86rem;color:{txt};line-height:1.55">{body}</div></div>'
+        for title, body, bg, bar, txt in blocks
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — Dashboard
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -477,6 +492,23 @@ with tab2:
     p2.metric("Jumlah Kolom", len(df.columns))
     p3.metric("Duplikat", int(df.duplicated().sum()))
 
+    st.markdown(f"""
+    <div style='background:linear-gradient(135deg,#FFF7ED,#FEF3C7);border:1px solid #FCD34D;
+                border-radius:12px;padding:1.1rem 1.3rem;margin:.8rem 0'>
+      <div style='font-weight:700;color:#92400E;font-size:.92rem;margin-bottom:.4rem'>
+        📌 Catatan Kejujuran Metodologis
+      </div>
+      <div style='font-size:.87rem;color:#78350F;line-height:1.6'>
+        Dataset ini bersifat <strong>sintetis</strong> — dibuat dengan pola teratur lewat
+        <code>generate_data.py</code> (seed tetap, dapat diulang). Konsekuensinya, akurasi model di
+        tab-tab berikut terlihat tinggi (R²≈{r2:.2f}, akurasi≈{acc:.2f}). Pada data asli
+        (Google Analytics / log Supabase) angka ini hampir pasti <strong>lebih rendah dan lebih
+        berisik</strong>. Yang ditonjolkan proyek ini adalah <strong>alur kerja sains data</strong> —
+        pembersihan → EDA → pemodelan → interpretasi — yang tetap sama saat data asli tersedia.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     c1, c2 = st.columns(2)
     with c1:
         sec("🗂", "Tipe Data")
@@ -578,6 +610,22 @@ with tab3:
     chart_layout(fig_koef, f"Koefisien Regresi (intercept = {lin.intercept_:.0f})", h=320)
     st.plotly_chart(fig_koef, use_container_width=True)
 
+    reasoning(
+        metode=("Jumlah pengunjung harian dipengaruhi <b>hari</b> dan <b>tren waktu</b>. "
+                "Hari adalah kategori → di-<i>one-hot encoding</i>; minggu ke- dipakai sebagai "
+                "angka untuk menangkap kenaikan bertahap. Regresi linear dipilih karena "
+                "pertanyaannya 'seberapa besar pengaruh tiap faktor' — koefisiennya bisa "
+                "langsung dibaca dan dijelaskan, bukan kotak hitam."),
+        baca=(f"Koefisien hari kerja positif sedangkan akhir pekan negatif (~−195) → website "
+              f"sekitar 195 kunjungan lebih sepi di Sabtu/Minggu. Masuk akal: website sekolah "
+              f"diakses saat aktivitas sekolah berjalan. Koefisien minggu ke- yang positif "
+              f"menegaskan tren naik {pertumbuhan:.0f}%. R²={r2:.2f} berarti model menjelaskan "
+              f"~{r2*100:.0f}% variasi — sisanya faktor tak terukur (mis. ada/tidaknya pengumuman)."),
+        batas=(f"Rata-rata error (MAE) masih ~{mae:.0f} pengunjung — model belum menangkap "
+               f"lonjakan mendadak. Pada data asli yang lebih berisik, error kemungkinan lebih "
+               f"besar. Langkah lanjut: tambah fitur seperti 'ada pengumuman/tidak' atau hari libur."),
+    )
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — Regresi Non-Linear
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -640,6 +688,22 @@ with tab4:
     fig_poly.update_layout(legend=dict(orientation="h", y=1.05))
     st.plotly_chart(fig_poly, use_container_width=True)
 
+    reasoning(
+        metode=("Pola kunjungan per jam jelas tidak lurus: ramai pagi, sepi siang, ramai lagi "
+                "malam. Kita uji dulu apakah garis lurus cukup, lalu naikkan derajat polinomial "
+                "secara bertahap. Tujuannya membuktikan <i>secara angka</i> bahwa hubungan "
+                "jam ↔ jumlah pengunjung memang melengkung, bukan sekadar mengira-ngira dari grafik."),
+        baca=(f"Linear R²≈{hasil_deg[1]:.2f} <b>bukan kegagalan analisis</b> — justru sebuah temuan: "
+              f"pola jam tidak bisa diringkas menjadi satu garis lurus. Polinomial derajat "
+              f"{best_deg} (R²≈{hasil_deg[best_deg]:.2f}) berhasil mengikuti dua puncak (pagi 07–09 "
+              f"&amp; malam 19–21). Ini contoh nyata model 'berakurasi rendah' yang tetap "
+              f"mengajarkan sesuatu yang penting."),
+        batas=("Polinomial derajat tinggi rawan <i>overfitting</i> — mengikuti titik terlalu ketat "
+               "sehingga buruk untuk memprediksi data baru. Karena itu derajat tidak dipaksa "
+               "lebih tinggi. Untuk pengambilan keputusan praktis, segmentasi jam (lihat tab "
+               "Clustering) lebih kokoh daripada kurva polinomial."),
+    )
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 5 — Clustering
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -694,6 +758,21 @@ with tab5:
                     unsafe_allow_html=True)
     st.caption("Sesi Puncak berguna untuk menjadwalkan publikasi konten agar langsung terbaca banyak orang.")
 
+    reasoning(
+        metode=("Kita tidak punya label 'sesi sibuk' sebelumnya, jadi dipakai K-Means "
+                "(<i>unsupervised</i>) agar data sendiri yang mengelompokkan jam berdasarkan "
+                "kemiripan rata-rata pengunjung &amp; durasi. Nama Sepi/Sedang/Puncak diberikan "
+                "<i>setelah</i> cluster terbentuk. Fitur distandarisasi dulu karena skalanya berbeda "
+                "(pengunjung vs detik)."),
+        baca=(f"Silhouette {sil:.2f} yang positif menandakan tiga kelompok cukup terpisah — "
+              f"bukan pembagian acak. Sesi Puncak ({ringkas_sesi.get('Puncak','–')}) konsisten "
+              f"dengan temuan jam tersibuk dari EDA. Hasil ini langsung bisa dipakai: jadwalkan "
+              f"posting pengumuman pada sesi Puncak."),
+        batas=("Jumlah cluster k=3 dipilih manual berdasarkan asumsi sepi/sedang/puncak, bukan "
+               "dioptimalkan otomatis. Nilai k yang berbeda bisa menghasilkan segmentasi berbeda. "
+               "Untuk kasus website sekolah, k=3 sudah cukup intuitif dan dapat ditindaklanjuti."),
+    )
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — Klasifikasi
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -743,6 +822,20 @@ with tab6:
 
     with st.expander("📄 Laporan Klasifikasi Lengkap"):
         st.code(classification_report(yc_te, yc_pred, target_names=["Sepi","Ramai"]))
+
+    reasoning(
+        metode=(f"Pertanyaannya biner: jam ini akan ramai atau tidak? Ambang 'ramai' = di atas "
+                f"median ({ambang:.0f}) agar kedua kelas seimbang (~50:50), sehingga akurasi tidak "
+                f"menipu. Decision Tree dipilih karena aturannya <b>terbaca manusia</b> "
+                f"(mis. 'jika jam 19–21 → ramai') — mudah dijelaskan ke pengelola website."),
+        baca=(f"Fitur penentu terkuat adalah '<b>{imp.idxmax()}</b>', bukan hari. Artinya keramaian "
+              f"website lebih ditentukan oleh <i>jam berapa</i> orang membuka, daripada hari apa. "
+              f"Accuracy {acc:.2f} dan F1 {f1:.2f} yang seimbang menunjukkan model tidak berat "
+              f"sebelah antara mendeteksi jam ramai vs sepi."),
+        batas=(f"Accuracy {acc:.2f} terlihat tinggi sebagian karena data sintetis berpola bersih. "
+               f"Pada log asli, batas jam ramai/sepi lebih kabur dan akurasi akan turun. Model ini "
+               f"menjadi <b>fondasi fitur 'prediksi keramaian'</b> yang menyambung ke mata kuliah PKB/AI."),
+    )
 
     st.divider()
     sec("💡", "Insight & Kesimpulan")
